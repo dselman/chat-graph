@@ -24,22 +24,48 @@ type Tool = {
     }
 }
 
+type Role = 'user' | 'system' | 'assistant' | 'tool';
 type Message = {
-    role: 'user' | 'system' | 'assistant' | 'tool';
+    role: Role;
     content?: string;
     tool_calls?: Array<Tool>;
 }
 
+function getColor(role: Role, content?: string) {
+    switch (role) {
+        case 'user':
+            return 'black';
+        case 'assistant':
+            return content ? 'blue' : 'grey';
+        case 'tool':
+            return 'grey';
+        default:
+            return 'black';
+    }
+}
+
+function getTitle(role: Role, content?: string) {
+    switch (role) {
+        case 'user':
+            return 'Question';
+        case 'assistant':
+            return content ? 'Answer' : 'Tool Request';
+        case 'tool':
+            return 'Tool Response';
+        default:
+            return 'Other';
+    }
+}
+
 function transformMessages(messages: Array<Message>): Array<MessageType> {
-    console.log(JSON.stringify(messages, null, 2));
     const nonSystem = messages.filter((m) => m.role !== 'system');
     return nonSystem.map((m) => {
         return {
             position: m.role === 'user' ? 'left' : 'right',
-            title: m.role,
+            title: getTitle(m.role, m.content),
             type: 'text',
-            titleColor: m.role === 'user' ? 'black' : 'red',
-            text: m.content ? m.content : m.tool_calls ? m.tool_calls.map(t => `${t.function.name} with ${t.function.arguments}`).join() : ''
+            titleColor: getColor(m.role, m.content),
+            text: m.content ? m.content : m.tool_calls ? m.tool_calls.map(t => `${t.function.name} with ${t.function.arguments}`).join(' and ') : ''
         } as MessageType;
     });
 }
@@ -48,7 +74,6 @@ const DEFAULT_INPUT = "Is Leonardo DiCaprio old enough to be Margot Robbie’s f
 export default function Chat() {
     const messageListReferance = null;
     const [messages, setMessages] = useState<Array<MessageType>>([]);
-    const inputRef = React.useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         fetch('/api/messages', {
@@ -70,15 +95,22 @@ export default function Chat() {
             })
     }, []);
 
-    const handleSubmit = async () => {
-        if (!inputRef.current?.value) {
+    const handleSubmit = async (e: any | undefined) => {
+        if (!e) {
             return;
         }
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+
+        // Or you can work with it as a plain object:
+        const formJson = Object.fromEntries(formData.entries());
+
         setMessages(prevArray => [...prevArray, {
             position: 'left',
             title: 'user',
             type: 'text',
-            text: inputRef.current?.value
+            text: formJson.chatInput
         } as MessageType])
 
         const response = await fetch('/api/chat', {
@@ -87,7 +119,7 @@ export default function Chat() {
                 'Content-Type': "application/json",
                 Accept: "application/json"
             },
-            body: JSON.stringify({ message: inputRef.current?.value }),
+            body: JSON.stringify({ message: formJson.chatInput }),
         });
 
         if (!response.ok || !response.body) {
@@ -109,12 +141,16 @@ export default function Chat() {
                 toBottomHeight={'100%'}
                 dataSource={messages}
             />
-            <input className="chat-input"
-                ref={inputRef}
-                defaultValue={DEFAULT_INPUT}
-                type="textarea"
-                placeholder="Type here..."
-            /><Button text={"Send"} onClick={handleSubmit} title="Send" />
+            <form method="post" onSubmit={handleSubmit}>
+                <textarea
+                    name="chatInput"
+                    defaultValue={DEFAULT_INPUT}
+                    rows={4}
+                    cols={40}
+                />
+                <br/>
+                <button type="submit">Send</button>
+            </form>
         </div>
     );
 }

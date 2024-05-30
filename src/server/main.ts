@@ -94,7 +94,6 @@ app.get('/api/messages', async (req, res) => {
 
 app.post("/api/chat", async (req, res) => {
   try {
-    console.log(JSON.stringify(req.body));
     if(!req.body.message) {
       res.status(400).send('Invalid message');
       return;
@@ -114,7 +113,6 @@ app.post("/api/chat", async (req, res) => {
     const newMessages = await conversation.runMessages(messages, req.body.message);
     req.session.messages = {items: newMessages};
     const replaced = replaceContent(newMessages);
-    console.log(JSON.stringify(replaced, null, 2))
     res.status(200).send({messages: replaced});
   } catch (err) {
     console.log(err);
