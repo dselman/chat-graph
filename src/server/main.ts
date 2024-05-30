@@ -1,0 +1,133 @@
+import express from "express";
+import ViteExpress from "vite-express";
+import { ConsoleLogger, Conversation, GraphModel, GraphModelOptions, Logger, getOpenAiEmbedding } from '@accordproject/concerto-graph';
+import session from "express-session";
+
+function checkEnv(name: string) {
+  if (!process.env[name]) {
+    throw new Error(`Environment variable ${name} has not been set`);
+  }
+}
+
+checkEnv('NEO4J_PASS');
+checkEnv('NEO4J_URL');
+
+type LogItem = {
+  level: 'info' | 'log' | 'success' | 'error' | 'warn';
+  message: any;
+  optionalParams: any[];
+};
+
+const options: GraphModelOptions = {
+  NEO4J_USER: process.env.NEO4J_USER,
+  NEO4J_PASS: process.env.NEO4J_PASS,
+  NEO4J_URL: process.env.NEO4J_URL,
+  logger: ConsoleLogger,
+  logQueries: false,
+  embeddingFunction: process.env.OPENAI_API_KEY ? getOpenAiEmbedding : undefined
+}
+const graphModel = new GraphModel(undefined, options);
+await graphModel.connect();
+await graphModel.loadConcertoModels();
+await graphModel.dropIndexes();
+await graphModel.createIndexes();
+
+const app = express();
+app.use(express.json());
+
+function jsonParse(obj:any) {
+  try {
+    return JSON.parse(obj);
+  }
+  catch(err) {
+    return obj;
+  }
+}
+
+function replaceContent(obj:any) {
+  if(obj) {
+    return JSON.parse(JSON.stringify(obj, (k,v) => (k === 'content' && v) 
+      ? JSON.stringify(removeEmbedding(jsonParse(v))) : v))
+  }
+  else {
+    return obj;
+  }
+}
+
+function removeEmbedding(obj:any) {
+  if(obj) {
+    return JSON.parse(JSON.stringify(obj, (k,v) => (k === 'embedding') ? undefined : v))
+  }
+  else {
+    return obj;
+  }
+}
+
+app.use(
+  session({
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24, // one day
+      expires: new Date(2025,1,1),
+      secure: false
+    },
+    // store,
+    secret: "1baddeed",
+    resave: true,
+    saveUninitialized: false,
+  })
+)
+
+type Messages = {
+  items: Array<any>;
+};
+
+// Augment express-session with a custom SessionData object
+declare module "express-session" {
+  interface SessionData {
+    messages: Messages;
+  }
+}
+
+app.get('/api/messages', async (req, res) => {
+  res.status(200).send({messages: replaceContent(req.session.messages?.items)});
+});
+
+app.post("/api/chat", async (req, res) => {
+  try {
+    console.log(JSON.stringify(req.body));
+    if(!req.body.message) {
+      res.status(400).send('Invalid message');
+      return;
+    }
+    const convoOptions = {
+      toolOptions: {
+        getById: true,
+        chatWithData: true,
+        fullTextSearch: true,
+        similaritySearch: true
+      },
+      maxContextSize: 64000,
+      logger: ConsoleLogger
+    };
+    const conversation = new Conversation(graphModel, convoOptions);
+    const messages = req.session.messages?.items ? req.session.messages.items : [conversation.getSystemMessage()];
+    const newMessages = await conversation.runMessages(messages, req.body.message);
+    req.session.messages = {items: newMessages};
+    const replaced = replaceContent(newMessages);
+    console.log(JSON.stringify(replaced, null, 2))
+    res.status(200).send({messages: replaced});
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+});
+
+app.use(function (err: any, req: any, res: any, next: any) {
+  console.error(err.stack);
+  res.status(500).send('Something broke!');
+});
+
+const port = process.env.PORT ? Number.parseInt(process.env.PORT) : 3000;
+ViteExpress.listen(app, port, () =>
+  console.log(`Server is listening on ${port}...`)
+);
