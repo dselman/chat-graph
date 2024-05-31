@@ -9,13 +9,14 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@accordproject/concerto-graph": "1.2.1-20240530140511",
+    "@accordproject/concerto-graph": "1.2.1-20240531130904",
     "@types/express-session": "^1.18.0",
+    "antd": "^5.17.4",
     "express": "^4.18.2",
     "express-session": "^1.18.0",
     "react": "^18.2.0",
-    "react-chat-elements": "^12.0.14",
     "react-dom": "^18.2.0",
+    "react-markdown": "^9.0.1",
     "react-router-dom": "^6.22.3",
     "semantic-ui-css": "^2.5.0",
     "semantic-ui-react": "^2.1.5",

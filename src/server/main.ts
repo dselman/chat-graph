@@ -92,6 +92,14 @@ app.get('/api/messages', async (req, res) => {
   res.status(200).send({messages: replaceContent(req.session.messages?.items)});
 });
 
+app.get('/api/questions', async (req, res) => {
+  res.status(200).send({questions: graphModel.getQuestions()});
+});
+
+app.get('/api/description', async (req, res) => {
+  res.status(200).send({description: graphModel.getDescription()});
+});
+
 app.post("/api/chat", async (req, res) => {
   try {
     if(!req.body.message) {

@@ -1,21 +1,8 @@
-import React, { useEffect, useRef } from "react";
-import { SetStateAction, useState } from "react";
-import { Button, Input, MessageList, MessageType } from "react-chat-elements"
-
-/*
-{
-    position: "left",
-    type: "text",
-    title: "Kursat",
-    text: "Give me a message list example !",
-  },
-  {
-    position: "right",
-    type: "text",
-    title: "Emre",
-    text: "That's all.",
-  }
-  */
+import { useEffect, useState } from "react";
+import ChatMessage, { ChatMessageProps } from "./ChatMessage";
+import { Button, Space } from 'antd';
+import LoadingChatMessage from "./LoadingChatMessage";
+import TextArea from "antd/es/input/TextArea";
 
 type Tool = {
     function: {
@@ -34,13 +21,13 @@ type Message = {
 function getColor(role: Role, content?: string) {
     switch (role) {
         case 'user':
-            return 'black';
+            return 'lightgreen';
         case 'assistant':
-            return content ? 'blue' : 'grey';
+            return content ? 'lightgreen' : 'lightgrey';
         case 'tool':
             return 'grey';
         default:
-            return 'black';
+            return 'grey';
     }
 }
 
@@ -57,25 +44,38 @@ function getTitle(role: Role, content?: string) {
     }
 }
 
-function transformMessages(messages: Array<Message>): Array<MessageType> {
+function transformContent(content: string) {
+    try {
+        const json = JSON.parse(content);
+        const result = typeof json === 'string' ? json : content;
+        return result;
+    }
+    catch (err) {
+        return content;
+    }
+}
+
+function transformMessages(messages: Array<Message>): Array<ChatMessageProps> {
     const nonSystem = messages.filter((m) => m.role !== 'system');
     return nonSystem.map((m) => {
+        const title = getTitle(m.role, m.content);
         return {
-            position: m.role === 'user' ? 'left' : 'right',
-            title: getTitle(m.role, m.content),
+            position: title === 'Question' || title === 'Answer' ? 'left' : 'right',
+            title,
             type: 'text',
-            titleColor: getColor(m.role, m.content),
-            text: m.content ? m.content : m.tool_calls ? m.tool_calls.map(t => `${t.function.name} with ${t.function.arguments}`).join(' and ') : ''
-        } as MessageType;
+            color: getColor(m.role, m.content),
+            text: transformContent(m.content ? m.content : m.tool_calls ? m.tool_calls.map(t => `${t.function.name} with ${t.function.arguments}`).join(' and ') : '')
+        };
     });
 }
 
 const DEFAULT_INPUT = "Is Leonardo DiCaprio old enough to be Margot Robbie’s father?";
 export default function Chat() {
-    const messageListReferance = null;
-    const [messages, setMessages] = useState<Array<MessageType>>([]);
+    const [messages, setMessages] = useState<Array<ChatMessageProps>>([]);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        setLoading(true);
         fetch('/api/messages', {
             method: "GET",
             headers: {
@@ -93,6 +93,9 @@ export default function Chat() {
                     }
                 })
             })
+            .finally(() => {
+                setLoading(false);
+            });
     }, []);
 
     const handleSubmit = async (e: any | undefined) => {
@@ -108,49 +111,54 @@ export default function Chat() {
 
         setMessages(prevArray => [...prevArray, {
             position: 'left',
-            title: 'user',
-            type: 'text',
-            text: formJson.chatInput
-        } as MessageType])
+            title: 'Question',
+            text: transformContent(formJson.chatInput.toString())
+        }])
 
-        const response = await fetch('/api/chat', {
-            method: "POST",
-            headers: {
-                'Content-Type': "application/json",
-                Accept: "application/json"
-            },
-            body: JSON.stringify({ message: formJson.chatInput }),
-        });
+        try {
+            setLoading(true);
+            const response = await fetch('/api/chat', {
+                method: "POST",
+                headers: {
+                    'Content-Type': "application/json",
+                    Accept: "application/json"
+                },
+                body: JSON.stringify({ message: formJson.chatInput }),
+            });
 
-        if (!response.ok || !response.body) {
-            alert(response.statusText);
+            if (!response.ok || !response.body) {
+                alert(response.statusText);
+            }
+
+            const newMessages = await response.json();
+            if (newMessages.messages) {
+                setMessages(transformMessages(newMessages.messages));
+            }
         }
-
-        const newMessages = await response.json();
-        if (newMessages.messages) {
-            setMessages(transformMessages(newMessages.messages));
+        finally {
+            setLoading(false);
         }
     };
 
+    const chatMessages = messages.map((m, index) => {
+        return <ChatMessage key={index} {...m} />
+    })
+
+    if (loading) {
+        chatMessages.push(<LoadingChatMessage />);
+    }
+
     return (
         <div className="chat">
-            <MessageList
-                referance={messageListReferance}
-                className='message-list'
-                lockable={true}
-                toBottomHeight={'100%'}
-                dataSource={messages}
-            />
-            <form method="post" onSubmit={handleSubmit}>
-                <textarea
-                    name="chatInput"
-                    defaultValue={DEFAULT_INPUT}
-                    rows={4}
-                    cols={40}
-                />
-                <br/>
-                <button type="submit">Send</button>
-            </form>
+            <Space direction="vertical" size={16}>
+                {chatMessages}
+                <form method="post" onSubmit={handleSubmit}>
+                    <Space direction="vertical" size="middle" style={{ display: 'flex' }}>
+                        <TextArea name="chatInput" rows={4} placeholder="Enter a question..." />
+                        <Button disabled={loading} type="primary" htmlType="submit">Submit</Button>
+                    </Space>
+                </form>
+            </Space>
         </div>
     );
 }
