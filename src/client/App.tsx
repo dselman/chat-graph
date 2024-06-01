@@ -4,8 +4,8 @@ import "./App.css";
 import Page from "./Page";
 import Chat from "./Chat";
 import { useEffect, useState } from "react";
-import { Flex, Layout } from "antd";
-import { Content, Footer, Header } from "antd/es/layout/layout";
+import Title from "antd/es/typography/Title";
+import Paragraph from "antd/es/typography/Paragraph";
 
 function HomeContent() {
   const [description, setDescription] = useState<string>('Chat with a Knowledge Graph...');
@@ -49,13 +49,16 @@ function HomeContent() {
   }, [])
 
   const questionsList = questions.map((q, index) => {
-    return <p key={index}><code>{q}</code></p>;
+    return <Paragraph key={index} copyable>{q}</Paragraph>
   })
 
   return (
-    <div>          
-      <h2>Looking for inspiration?</h2>
-      {questionsList}
+    <div className="home">
+       <Title level={2}>{description}</Title>
+       <Title level={3}>Looking for inspiration?</Title>
+      <div className="samples">
+        {questionsList}
+      </div>
       <Chat />
     </div >
   );

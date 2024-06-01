@@ -92,6 +92,13 @@ app.get('/api/messages', async (req, res) => {
   res.status(200).send({messages: replaceContent(req.session.messages?.items)});
 });
 
+app.post('/api/reset', async (req, res) => {
+  req.session.destroy( () => {
+    res.status(200).send({messages: []});
+  });
+});
+
+
 app.get('/api/questions', async (req, res) => {
   res.status(200).send({questions: graphModel.getQuestions()});
 });

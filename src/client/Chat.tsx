@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import ChatMessage, { ChatMessageProps } from "./ChatMessage";
-import { Button, Space } from 'antd';
+import { Space } from 'antd';
 import LoadingChatMessage from "./LoadingChatMessage";
 import TextArea from "antd/es/input/TextArea";
+import { Button, Checkbox, Form, Input } from 'antd';
+import type { FormProps } from 'antd';
 
 type Tool = {
     function: {
@@ -18,16 +20,24 @@ type Message = {
     tool_calls?: Array<Tool>;
 }
 
+const ecru = '#F8F3F0';
+const poppy = '#FF5252';
+const mist = '#CBC2FF';
+
+type FieldType = {
+    chatInput?: string;
+};
+
 function getColor(role: Role, content?: string) {
     switch (role) {
         case 'user':
-            return 'lightgreen';
+            return 'white';
         case 'assistant':
-            return content ? 'lightgreen' : 'lightgrey';
+            return content ? ecru : mist;
         case 'tool':
-            return 'grey';
+            return mist;
         default:
-            return 'grey';
+            return mist;
     }
 }
 
@@ -69,7 +79,6 @@ function transformMessages(messages: Array<Message>): Array<ChatMessageProps> {
     });
 }
 
-const DEFAULT_INPUT = "Is Leonardo DiCaprio old enough to be Margot Robbie’s father?";
 export default function Chat() {
     const [messages, setMessages] = useState<Array<ChatMessageProps>>([]);
     const [loading, setLoading] = useState(false);
@@ -98,17 +107,40 @@ export default function Chat() {
             });
     }, []);
 
-    const handleSubmit = async (e: any | undefined) => {
-        if (!e) {
+    const onFinishFailed: FormProps<FieldType>['onFinishFailed'] = (errorInfo) => {
+        alert(`Failed: ${errorInfo}`);
+    };
+
+    const handleReset = async() => {
+        try {
+            setLoading(true);
+            const response = await fetch('/api/reset', {
+                method: "POST",
+                headers: {
+                    'Content-Type': "application/json",
+                    Accept: "application/json"
+                },
+            });
+
+            if (!response.ok || !response.body) {
+                alert(response.statusText);
+            }
+
+            const newMessages = await response.json();
+            if (newMessages.messages) {
+                setMessages(transformMessages(newMessages.messages));
+            }
+        }
+        finally {
+            setLoading(false);
+        }
+    }
+
+    const handleSubmit: FormProps<FieldType>['onFinish'] = async (formJson) => {
+        console.log(formJson);
+        if (!formJson.chatInput) {
             return;
         }
-        e.preventDefault();
-        const form = e.target;
-        const formData = new FormData(form);
-
-        // Or you can work with it as a plain object:
-        const formJson = Object.fromEntries(formData.entries());
-
         setMessages(prevArray => [...prevArray, {
             position: 'left',
             title: 'Question',
@@ -152,12 +184,30 @@ export default function Chat() {
         <div className="chat">
             <Space direction="vertical" size={16}>
                 {chatMessages}
-                <form method="post" onSubmit={handleSubmit}>
-                    <Space direction="vertical" size="middle" style={{ display: 'flex' }}>
-                        <TextArea name="chatInput" rows={4} placeholder="Enter a question..." />
-                        <Button disabled={loading} type="primary" htmlType="submit">Submit</Button>
-                    </Space>
-                </form>
+                <Form
+                    name="chat"
+                    onFinish={handleSubmit}
+                    autoComplete="off"
+                    onFinishFailed={onFinishFailed}
+                >
+                    <Form.Item<FieldType>
+                        name="chatInput"
+                        rules={[{ required: true, message: 'Please enter a question.' }]}
+                    >
+                        <TextArea rows={4} placeholder="Enter a question..." />
+                    </Form.Item>
+
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit" disabled={loading}>
+                            Submit
+                        </Button>
+                    </Form.Item>
+                    <Form.Item>
+                        <Button htmlType="reset" disabled={loading} onClick={handleReset}>
+                            Reset
+                        </Button>
+                    </Form.Item>
+                </Form>
             </Space>
         </div>
     );
