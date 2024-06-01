@@ -101,7 +101,7 @@ export default function Chat() {
         })
             .then((response) => {
                 if (!response.ok || !response.body) {
-                    alert(response.statusText);
+                    alert(`Failed! ${response.statusText}`);
                 }
                 response.json().then(sessionMessages => {
                     if (sessionMessages.messages) {
@@ -130,7 +130,7 @@ export default function Chat() {
             });
 
             if (!response.ok || !response.body) {
-                alert(response.statusText);
+                alert(`Failed! ${response.statusText}`);
             }
 
             const newMessages = await response.json();
@@ -166,7 +166,7 @@ export default function Chat() {
             });
 
             if (!response.ok || !response.body) {
-                alert(response.statusText);
+                alert(`Failed! ${response.statusText}`);
             }
 
             const newMessages = await response.json();
