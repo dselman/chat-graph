@@ -59,7 +59,7 @@ function HomeContent() {
       <div className="samples">
         {questionsList}
       </div>
-      <Chat />
+      <Chat/>
     </div >
   );
 }

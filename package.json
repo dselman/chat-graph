@@ -9,7 +9,7 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@accordproject/concerto-graph": "1.2.1-20240531130904",
+    "@accordproject/concerto-graph": "unstable",
     "@types/express-session": "^1.18.0",
     "antd": "^5.17.4",
     "express": "^4.18.2",

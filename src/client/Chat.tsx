@@ -5,6 +5,7 @@ import LoadingChatMessage from "./LoadingChatMessage";
 import TextArea from "antd/es/input/TextArea";
 import { Button, Checkbox, Form, Input } from 'antd';
 import type { FormProps } from 'antd';
+import { MessageProps } from "semantic-ui-react";
 
 type Tool = {
     function: {
@@ -79,8 +80,14 @@ function transformMessages(messages: Array<Message>): Array<ChatMessageProps> {
     });
 }
 
+const WELCOME_MESSAGE:ChatMessageProps = {
+    position: "left",
+    title: "Answer",
+    text: 'Beep boop. I am a useful robot here to help you answer questions related to the data stored in a knowledge graph.'
+};
+
 export default function Chat() {
-    const [messages, setMessages] = useState<Array<ChatMessageProps>>([]);
+    const [messages, setMessages] = useState<Array<ChatMessageProps>>([WELCOME_MESSAGE]);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -128,7 +135,7 @@ export default function Chat() {
 
             const newMessages = await response.json();
             if (newMessages.messages) {
-                setMessages(transformMessages(newMessages.messages));
+                setMessages([WELCOME_MESSAGE]);
             }
         }
         finally {
@@ -194,7 +201,7 @@ export default function Chat() {
                         name="chatInput"
                         rules={[{ required: true, message: 'Please enter a question.' }]}
                     >
-                        <TextArea rows={4} placeholder="Enter a question..." />
+                        <TextArea cols={10} rows={4} style={{width: '100%'}} placeholder="Enter a question..." />
                     </Form.Item>
 
                     <Form.Item>
