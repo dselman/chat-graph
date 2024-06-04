@@ -73,9 +73,10 @@ function transformContent(content: string) {
 }
 
 function transformLogMessages(messages?:Array<LogMessage>) {
-    return messages ? messages.map( m => {
+    const result = messages ? messages.map( m => {
         return m.message.toString();
     }).join(', ') : '';
+    return result.length > 256 ? `${result.substring(0,255)}...` : result;
 }
 
 function transformMessages(messages: Array<Message>): Array<ChatMessageProps> {
