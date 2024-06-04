@@ -2,6 +2,7 @@ import express from "express";
 import ViteExpress from "vite-express";
 import { ConsoleLogger, Conversation, GraphModel, GraphModelOptions, Logger, getOpenAiEmbedding } from '@accordproject/concerto-graph';
 import session from "express-session";
+import { LogMessage, MemoryLogger } from "./MemoryLogger.js";
 
 function checkEnv(name: string) {
   if (!process.env[name]) {
@@ -12,17 +13,11 @@ function checkEnv(name: string) {
 checkEnv('NEO4J_PASS');
 checkEnv('NEO4J_URL');
 
-type LogItem = {
-  level: 'info' | 'log' | 'success' | 'error' | 'warn';
-  message: any;
-  optionalParams: any[];
-};
-
 const options: GraphModelOptions = {
   NEO4J_USER: process.env.NEO4J_USER,
   NEO4J_PASS: process.env.NEO4J_PASS,
   NEO4J_URL: process.env.NEO4J_URL,
-  logger: ConsoleLogger,
+  logger: MemoryLogger,
   logQueries: false,
   embeddingFunction: process.env.OPENAI_API_KEY ? getOpenAiEmbedding : undefined
 }
@@ -113,6 +108,7 @@ app.post("/api/chat", async (req, res) => {
       res.status(400).send('Invalid message');
       return;
     }
+    const memoryLogger = MemoryLogger;
     const convoOptions = {
       toolOptions: {
         getById: true,
@@ -121,12 +117,20 @@ app.post("/api/chat", async (req, res) => {
         similaritySearch: true
       },
       maxContextSize: 64000,
-      logger: ConsoleLogger
+      logger: memoryLogger
     };
+    (memoryLogger as any).clear();
     const conversation = new Conversation(graphModel, convoOptions);
     const messages = req.session.messages?.items ? req.session.messages.items : [conversation.getSystemMessage()];
     const newMessages = await conversation.runMessages(messages, req.body.message);
     req.session.messages = {items: newMessages};
+    if(newMessages.length > 0) {
+      const cypherMessages = (memoryLogger as any).getLogMessages()
+      .filter( (m:LogMessage) => m.level === 'info' 
+        && m.message.toString().startsWith('Generated Cypher')
+        /*&& m.message.toString().indexOf('<EMBEDDINGS>') > 0*/ );
+      newMessages[newMessages.length-1].logMessages = cypherMessages;
+    }
     const replaced = replaceContent(newMessages);
     res.status(200).send({messages: replaced});
   } catch (err) {

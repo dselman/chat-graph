@@ -3,9 +3,8 @@ import ChatMessage, { ChatMessageProps } from "./ChatMessage";
 import { Space } from 'antd';
 import LoadingChatMessage from "./LoadingChatMessage";
 import TextArea from "antd/es/input/TextArea";
-import { Button, Checkbox, Form, Input } from 'antd';
+import { Button, Form } from 'antd';
 import type { FormProps } from 'antd';
-import { MessageProps } from "semantic-ui-react";
 
 type Tool = {
     function: {
@@ -14,11 +13,18 @@ type Tool = {
     }
 }
 
+type LogMessage = {
+    level: 'log' | 'info' | 'success' | 'warn' | 'error',
+    message: any;
+    optionalParams: any[];
+}
+
 type Role = 'user' | 'system' | 'assistant' | 'tool';
 type Message = {
     role: Role;
     content?: string;
     tool_calls?: Array<Tool>;
+    logMessages: Array<LogMessage>;
 }
 
 const ecru = '#F8F3F0';
@@ -66,6 +72,12 @@ function transformContent(content: string) {
     }
 }
 
+function transformLogMessages(messages?:Array<LogMessage>) {
+    return messages ? messages.map( m => {
+        return m.message.toString();
+    }).join(', ') : '';
+}
+
 function transformMessages(messages: Array<Message>): Array<ChatMessageProps> {
     const nonSystem = messages.filter((m) => m.role !== 'system');
     return nonSystem.map((m) => {
@@ -75,7 +87,8 @@ function transformMessages(messages: Array<Message>): Array<ChatMessageProps> {
             title,
             type: 'text',
             color: getColor(m.role, m.content),
-            text: transformContent(m.content ? m.content : m.tool_calls ? m.tool_calls.map(t => `${t.function.name} with ${t.function.arguments}`).join(' and ') : '')
+            text: transformContent(m.content ? m.content : m.tool_calls ? m.tool_calls.map(t => `${t.function.name} with ${t.function.arguments}`).join(' and ') : ''),
+            logMessage: transformLogMessages(m.logMessages)
         };
     });
 }
@@ -184,7 +197,7 @@ export default function Chat() {
     })
 
     if (loading) {
-        chatMessages.push(<LoadingChatMessage />);
+        chatMessages.push(<LoadingChatMessage key={-1}/>);
     }
 
     return (
